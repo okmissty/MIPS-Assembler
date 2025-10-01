@@ -64,16 +64,59 @@ int main(int argc, char* argv[]) {
      * - Goes through each instruction and properly encodes 
      * Process all instructions, output to instruction memory file
      * TODO: Almost all of this, it only works for adds
-     */
+     */ 
     for(string inst : instructions) {
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
-        if (inst_type == "add") {
+        // R type instructions
+        if (inst_type == "add"){
             int result = encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32); // Uncesscary 
             write_binary(encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32),inst_outfile);
-        } else if (inst_type == "sub")
+        } else if (inst_type == "addi"){
+            
+        } else if (inst_type == "sub"){
 
-        // Implement all required functions 
+        } else if (inst_type == "mult"){
+
+        } else if (inst_type == "div"){
+
+        // I type instructions
+        } else if (inst_type == "mflo"){
+            
+        } else if (inst_type == "mfhi"){
+
+        } else if (inst_type == "sll"){
+
+        } else if (inst_type == "srl"){
+
+        } else if (inst_type == "lw"){
+
+        } else if (inst_type == "sw"){
+
+        } else if (inst_type == "slt"){
+
+        } else if (inst_type == "beq"){
+
+        } else if (inst_type == "bne"){
+
+        // J type instructions
+        } else if (inst_type == "j"){
+
+        } else if (inst_type == "jal"){
+
+        } else if (inst_type == "jr"){
+
+        } else if (inst_type == "jalr"){
+
+        // Special Instructions
+        } else if (inst_type == "Syscall"){
+
+        } else {
+            cout << "Error" << end;
+        }
+
+        
+        
     }
 }
 
