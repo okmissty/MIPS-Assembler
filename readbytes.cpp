@@ -6,14 +6,13 @@
 #include <bitset>
 #include <iomanip>
 
+using namespace std;
 int main(int argc, char* argv[]) {
-  std::string filename = argv[argc-1];
+  string filename = argv[argc-1];
   int buffer;
-  std::ifstream file(filename, std::ios::in | std::ios::binary);
+  ifstream file(filename, ios::in | ios::binary);
   while(file.read((char*) &buffer,sizeof(int))) {
-    std::cout << std::bitset<32>(buffer) << " " << std::setfill('0') <<
-std::setw(8) << std::hex << buffer << " " << std::dec << buffer << std::endl;
+    cout << bitset<32>(buffer) << " " << setfill('0') << setw(8) << hex << buffer << " " << dec << buffer << endl;
   }
   file.close();
-  
 }

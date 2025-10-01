@@ -55,9 +55,13 @@ int main(int argc, char* argv[]) {
     /** Phase 2
      * Process all static memory, output to static memory file
      * TODO: All of this
+        // Make a binary file that contains all of the data .word 2 4 5
+        // multiple label adress by 4
+        // find a way to map labels to line numbers
      */
 
     /** Phase 3
+     * - Goes through each instruction and properly encodes 
      * Process all instructions, output to instruction memory file
      * TODO: Almost all of this, it only works for adds
      */
@@ -65,9 +69,11 @@ int main(int argc, char* argv[]) {
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
         if (inst_type == "add") {
-            int result = encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32);
+            int result = encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32); // Uncesscary 
             write_binary(encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32),inst_outfile);
-        }
+        } else if (inst_type == "sub")
+
+        // Implement all required functions 
     }
 }
 

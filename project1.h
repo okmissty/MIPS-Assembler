@@ -18,20 +18,18 @@ using namespace std;
 const string WHITESPACE = " \n\r\t\f\v";
  
 //Remove all whitespace from the left of the string
-string ltrim(const string &s)
-{
+string ltrim(const string &s){
     size_t start = s.find_first_not_of(WHITESPACE);
     return (start == string::npos) ? "" : s.substr(start);
 }
  
 //Remove all whitespace from the right of the string
-string rtrim(const string &s)
-{
+string rtrim(const string &s){
     size_t end = s.find_last_not_of(WHITESPACE);
     return (end == string::npos) ? "" : s.substr(0, end + 1);
 }
 
-vector<string> split(const string &s, const string &split_on) {
+vector<string> split(const string &s, const string &split_on){
     vector<string> split_terms;
     int cur_pos = 0;
     while(cur_pos != string::npos) {
@@ -44,16 +42,14 @@ vector<string> split(const string &s, const string &split_on) {
 }
 
 //Remove all comments and leading/trailing whitespace
-string clean(const string &s)
-{
+string clean(const string &s){
     return rtrim(ltrim(s.substr(0,s.find('#'))));
 }
 
 /**
  * How to write raw binary to a file in C++
  */
-void write_binary(int value,ofstream &outfile)
-{
+void write_binary(int value,ofstream &outfile){
     //cout << hex << value << endl; //Useful for debugging
     outfile.write((char *)&value, sizeof(int));
 }
@@ -62,13 +58,20 @@ void write_binary(int value,ofstream &outfile)
  * Helper methods for instruction encoding
  */
 
-
-// Utility function for encoding an arithmetic "R" type function
-int encode_Rtype(int opcode, int rs, int rt, int rd, int shftamt, int funccode) {
-    return (opcode << 26) + (rs << 21) + (rt << 16) + (rd << 11) + (shftamt << 6) + funccode;
+// Utility function for encoding an arithmetic "R" type function: Registers Only
+int encode_Rtype(int opcode, int rs, int rt, int rd, int shftamt, int funccode){
+    return (opcode << 26) + (rs << 21) + (rt << 16) + (rd << 11) + (shftamt << 6) + funccode; // shifts by int 
 }
-// Hint: What other instruction types need to be encoded?
 
+// Utility function for encoding an arithmetic "I" type function: Has a constant involved
+int encode_Itype(int opcode, int rs, int rt, int i){
+    return 0; 
+}
+
+// Utility function for encoding an arithmetic "J" type function: Jumps to address
+int encode_Jtype(int opcode, int address){
+    return 0; 
+}
 
 /**
  * Register name map
