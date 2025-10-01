@@ -1,3 +1,4 @@
+// Andy Quach & Tyeon Ford
 #ifndef __PROJECT1_H__
 #define __PROJECT1_H__
 
@@ -9,30 +10,31 @@
 #include <sstream>
 #include <fstream>
 
+using namespace std;
 /**
  * Helper Functions for String Processing
  */
 
-const std::string WHITESPACE = " \n\r\t\f\v";
+const string WHITESPACE = " \n\r\t\f\v";
  
 //Remove all whitespace from the left of the string
-std::string ltrim(const std::string &s)
+string ltrim(const string &s)
 {
     size_t start = s.find_first_not_of(WHITESPACE);
-    return (start == std::string::npos) ? "" : s.substr(start);
+    return (start == string::npos) ? "" : s.substr(start);
 }
  
 //Remove all whitespace from the right of the string
-std::string rtrim(const std::string &s)
+string rtrim(const string &s)
 {
     size_t end = s.find_last_not_of(WHITESPACE);
-    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+    return (end == string::npos) ? "" : s.substr(0, end + 1);
 }
 
-std::vector<std::string> split(const std::string &s, const std::string &split_on) {
-    std::vector<std::string> split_terms;
+vector<string> split(const string &s, const string &split_on) {
+    vector<string> split_terms;
     int cur_pos = 0;
-    while(cur_pos != std::string::npos) {
+    while(cur_pos != string::npos) {
         int new_pos = s.find_first_not_of(split_on, cur_pos);
         cur_pos = s.find_first_of(split_on, new_pos);
         if(new_pos == -1 && cur_pos == -1) break;
@@ -42,7 +44,7 @@ std::vector<std::string> split(const std::string &s, const std::string &split_on
 }
 
 //Remove all comments and leading/trailing whitespace
-std::string clean(const std::string &s)
+string clean(const string &s)
 {
     return rtrim(ltrim(s.substr(0,s.find('#'))));
 }
@@ -50,9 +52,9 @@ std::string clean(const std::string &s)
 /**
  * How to write raw binary to a file in C++
  */
-void write_binary(int value,std::ofstream &outfile)
+void write_binary(int value,ofstream &outfile)
 {
-    //std::cout << std::hex << value << std::endl; //Useful for debugging
+    //cout << hex << value << endl; //Useful for debugging
     outfile.write((char *)&value, sizeof(int));
 }
 
@@ -71,7 +73,7 @@ int encode_Rtype(int opcode, int rs, int rt, int rd, int shftamt, int funccode) 
 /**
  * Register name map
  */
-static std::unordered_map<std::string, int> registers {
+static unordered_map<string, int> registers {
   {"$zero", 0}, {"$0", 0},
   {"$at", 1}, {"$1", 1},
   {"$v0", 2}, {"$2", 2},
