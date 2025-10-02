@@ -118,9 +118,12 @@ int main(int argc, char* argv[]) {
     /** Phase 2
      * Process all static memory, output to static memory file
      * TODO: All of this
-        // Make a binary file that contains all of the static data (*_static.bin.txt)
+        // Make a binary file that contains all of the data .word 2 4 5
         // find a way to map labels to line numbers
      */
+    
+
+
 
     /** Phase 3
      * - Goes through each instruction and properly encodes 
@@ -130,51 +133,58 @@ int main(int argc, char* argv[]) {
     for(string inst : text_section) {  // Changed from 'instructions' to 'text_section'
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
+        
+        // int opcode, int rs, int rt, int rd, int shftamt, int funccode
+        // (opcode << 26) + (rs << 21) + (rt << 16) + (rd << 11) + (shftamt << 6) + funccode;
         // R type instructions
         if (inst_type == "add"){
-            int result = encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32); // Uncesscary 
-            write_binary(encode_Rtype(0,registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32),inst_outfile);
-        } else if (inst_type == "addi"){
-            
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "sub"){
-
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "mult"){
-
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
         } else if (inst_type == "div"){
-
-        // I type instructions
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
         } else if (inst_type == "mflo"){
-            
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "mfhi"){
-
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "sll"){
-
+            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 0), inst_outfile);
         } else if (inst_type == "srl"){
-
-        } else if (inst_type == "lw"){
-
-        } else if (inst_type == "sw"){
-
-        } else if (inst_type == "slt"){
-
-        } else if (inst_type == "beq"){
-
-        } else if (inst_type == "bne"){
-
-        // J type instructions
-        } else if (inst_type == "j"){
-
-        } else if (inst_type == "jal"){
-
+            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 2), inst_outfile);
         } else if (inst_type == "jr"){
+            write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
+        // } else if (inst_type == "jalr"){ // Needs to be finished
+        //     write_binary(encode_Rtype());
+        // } else if (inst_type == "slt"){
+        //     write_binary(encode_Rtype());
 
-        } else if (inst_type == "jalr"){
+        // // I type instructions
+        // } else if (inst_type == "lw"){
+        //     write_binary(encode_Itype());
+        // } else if (inst_type == "sw"){
+        //     write_binary(encode_Itype());
+        // } else if (inst_type == "addi"){ // (opcode, rs, rt, imm)
+        //     write_binary(encode_Itype());
+        // } else if (inst_type == "beq"){ // (opcode, rs, rt, label)
+        //     write_binary(encode_Itype());
+        // } else if (inst_type == "bne"){ // (opcode, rs, rt, label)
+        //     write_binary(encode_Itype());
 
-        // Special Instructions
-        } else if (inst_type == "Syscall"){
+        // // J type instructions
+        // } else if (inst_type == "j"){
+        //     write_binary(encode_Jtype());
+        // } else if (inst_type == "jal"){
+        //     write_binary(encode_Jtype());
+        
+        // // Special Instructions
+        // } else if (inst_type == "Syscall"){
+        //     write_binary(encode_Jtype());
 
+        // invalid instruction
         } else {
-            cout << "Error" << end;
+            cout << "Error" << endl;
         }
     }
 }
