@@ -106,9 +106,8 @@ int main(int argc, char* argv[]) {
                         text_section.push_back(content);
                         instruction_count++;
                     }
-                    // Note: For standalone labels (empty content), we don't increment instruction_count
-                    // The label maps to the current instruction_count, which will be the address 
-                    // of the next actual instruction that follows
+                    // For the standalone labels (with empty content) in our asm. files, we don't increment instruction_count
+                    // The label maps to the current instruction_count, which will be the address of the next actual instruction that follows
                 }
             }
         }
