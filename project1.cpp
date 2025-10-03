@@ -175,12 +175,12 @@ int main(int argc, char* argv[]) {
 
                         // Challenge: 5 stars
                         else if (content.find(".asciiz") != string::npos) {
-                            // Extract string between quotes
-                            size_t first_quote = content.find('"');
-                            size_t last_quote = content.rfind('"');
+                            // Finds the beginning and the end of the string
+                            int begin = content.find('"');
+                            int end = content.rfind('"');
 
-                            if (first_quote != string::npos && last_quote != string::npos && first_quote < last_quote) {
-                                string str_content = content.substr(first_quote + 1, last_quote - first_quote - 1);
+                            if (begin != string::npos && end != string::npos && begin < end) {
+                                string str_content = content.substr(begin + 1, end - begin - 1);
                                 // Each character takes 4 bytes, plus null terminator
                                 data_address += (str_content.length() + 1) * 4;
                             }
