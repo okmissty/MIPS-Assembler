@@ -61,8 +61,6 @@ int main(int argc, char* argv[]) {
     cout << "Assembling to:" << endl;
     cout << "  Static memory: " << static_filename << endl;
     cout << "  Instructions:  " << inst_filename << endl;
-    
-    vector<string> instructions;
 
     /**
      * Phase 1:
@@ -203,6 +201,10 @@ int main(int argc, char* argv[]) {
         
         // R type instructions: int opcode, int rs, int rt, int rd, int shftamt, int funccode
         if (inst_type == "add") {
+            if (terms.size() < 4) {
+                cerr << "Error: add instruction requires 3 registers" << endl;
+                exit(1);
+            }
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "sub") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 34), inst_outfile);
@@ -232,6 +234,10 @@ int main(int argc, char* argv[]) {
         } else if (inst_type == "slt") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
         } else if (inst_type == "addi") {
+            if (terms.size() < 4) {
+                cerr << "Error: addi instruction requires 2 registers and 1 immediate" << endl;
+                exit(1);
+            }
             int imm = stoi(terms[3]);
             write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
         } else if (inst_type == "lw") {
@@ -243,36 +249,70 @@ int main(int argc, char* argv[]) {
             int offset = stoi(terms[2]);
             write_binary(encode_Itype(43, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
         } else if (inst_type == "beq") {
-            int target = instruction_labels[terms[3]];
-            int offset = target - (current_instruction + 1);
-            write_binary(encode_Itype(4, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+            string label = terms[3];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                int offset = target - (current_instruction + 1);
+                write_binary(encode_Itype(4, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in beq instruction" << endl;
+                exit(1);
+            }
         } else if (inst_type == "bne") {
-            int target = instruction_labels[terms[3]];
-            int offset = target - (current_instruction + 1);
-            write_binary(encode_Itype(5, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+            string label = terms[3];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                int offset = target - (current_instruction + 1);
+                write_binary(encode_Itype(5, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in bne instruction" << endl;
+                exit(1);
+            }
         
         // J-type instructions
         } else if (inst_type == "j") {
-            int target = instruction_labels[terms[1]];
-            write_binary(encode_Jtype(2, target), inst_outfile);
+            string label = terms[1];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                write_binary(encode_Jtype(2, target), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in j instruction" << endl;
+                exit(1);
+            }
         } else if (inst_type == "jal") {
-            int target = instruction_labels[terms[1]];
-            write_binary(encode_Jtype(3, target), inst_outfile);
+            string label = terms[1];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                write_binary(encode_Jtype(3, target), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in jal instruction" << endl;
+                exit(1);
+            }
         
         // Pseudoinstruction: la
         } else if (inst_type == "la") {
             // la $rt, label -> addi $rt, $zero, address
-            int address = static_labels[terms[2]];
-            write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
+            if (terms.size() < 3) {
+                cerr << "Error: la instruction requires 1 register and 1 label" << endl;
+                exit(1);
+            }
+            string label = terms[2];
+            if (static_labels.find(label) != static_labels.end()) {
+                int address = static_labels[label];
+                write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
+            } else {
+                cerr << "Error: undefined static label '" << label << "' in la instruction" << endl;
+                exit(1);
+            }
         
         // Special instruction: syscall
         } else if (inst_type == "syscall") {
             write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
         
         } else {
-            cerr << "Error: Unknown instruction " << inst_type << endl;
+            cerr << "Error: Unknown instruction '" << inst_type << "'" << endl;
+            exit(1);
         }
-        // After an iteration we increment the line number for the next instruction!!
         current_instruction++;
     }
     
