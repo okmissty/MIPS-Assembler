@@ -9,19 +9,59 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <algorithm>
 
 using namespace std;
 
+// Helper function to extract base filename without path and extension
+string getBaseFilename(const string& filepath) {
+    filesystem::path p(filepath);
+    return p.stem().string();
+}
+
+// Helper function to ensure output directory exists
+void ensureOutputDirectory() {
+    filesystem::create_directories("output");
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 4) { // Checks that at least 3 arguments are given in command line
-        cerr << "Expected Usage:\n ./assemble infile1.asm infile2.asm ... infilek.asm staticmem_outfile.bin instructions_outfile.bin\n" << endl;
+    if (argc < 2) { // At least one input file is required
+        cerr << "Expected Usage:\n ./assemble infile1.asm [infile2.asm ...]\n" << endl;
+        cerr << "Output files will be automatically organized in the 'output/' directory\n" << endl;
         exit(1);
     }
     
+    // Ensure output directory exists
+    ensureOutputDirectory();
+    
+    // Generate output filenames based on input files
+    string output_prefix;
+    if (argc == 2) {
+        // Single file: use its base name
+        output_prefix = getBaseFilename(argv[1]);
+    } else {
+        // Multiple files: use "combined" or first file's name
+        output_prefix = getBaseFilename(argv[1]) + "_combined";
+    }
+    
+    string static_filename = "output/" + output_prefix + "_static.bin";
+    string inst_filename = "output/" + output_prefix + "_inst.bin";
+    
     //Prepare output files
     ofstream inst_outfile, static_outfile;
-    static_outfile.open(argv[argc - 2], ios::binary);
-    inst_outfile.open(argv[argc - 1], ios::binary);
+    static_outfile.open(static_filename, ios::binary);
+    inst_outfile.open(inst_filename, ios::binary);
+    
+    if (!static_outfile || !inst_outfile) {
+        cerr << "Error: Could not create output files in output directory" << endl;
+        exit(1);
+    }
+    
+    cout << "Assembling to:" << endl;
+    cout << "  Static memory: " << static_filename << endl;
+    cout << "  Instructions:  " << inst_filename << endl;
+    
     vector<string> instructions;
 
     /**
@@ -49,7 +89,7 @@ int main(int argc, char* argv[]) {
     int instruction_count = 0;                      // current instruction number in .text
 
     //For each input file:
-    for (int i = 1; i < argc - 2; i++) {
+    for (int i = 1; i < argc; i++) {
         ifstream infile(argv[i]); //  open the input file for reading
         if (!infile) { // if file can't be opened, need to let the user know
             cerr << "Error: could not open file: " << argv[i] << endl;
@@ -69,6 +109,11 @@ int main(int argc, char* argv[]) {
             } else if (str == ".text") {                            // Found start of .text section
                 current_section = TEXT;
             } else {
+                // Skip .globl directives
+                if (str.find(".globl") != string::npos) {
+                    continue;
+                }
+                
                 string content = str;  // Default: treat entire line as content                
                 
                 // Check if line contains a label (has colon)
@@ -154,8 +199,8 @@ int main(int argc, char* argv[]) {
     /** Phase 3
      * - Goes through each instruction and properly encodes 
      * Process all instructions, output to instruction memory file
-     * TODO: Almost all of this, it only works for adds
      */ 
+    int current_instruction = 0;
     for(string inst : text_section) {  // Changed from 'instructions' to 'text_section'
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
@@ -193,6 +238,16 @@ int main(int argc, char* argv[]) {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
         
         // I-type instructions
+        } else if (inst_type == "la") {
+            // la is a pseudoinstruction - convert to addi with static memory address
+            string label = terms[2];
+            if (static_labels.find(label) != static_labels.end()) {
+                int address = static_labels[label];
+                write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile); // addi $rt, $zero, address
+            } else {
+                cerr << "Error: undefined static label '" << label << "' in la instruction" << endl;
+                exit(1);
+            }
         } else if (inst_type == "addi") {
             int imm = stoi(terms[3]);
             write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
@@ -206,11 +261,11 @@ int main(int argc, char* argv[]) {
             write_binary(encode_Itype(43, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
         } else if (inst_type == "beq") {
             int target = instruction_labels[terms[3]];
-            int offset = target - (line_num + 1);
+            int offset = target - (current_instruction + 1);
             write_binary(encode_Itype(4, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
         } else if (inst_type == "bne") {
             int target = instruction_labels[terms[3]];
-            int offset = target - (line_num + 1);
+            int offset = target - (current_instruction + 1);
             write_binary(encode_Itype(5, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
         
         // J-type instructions
@@ -221,12 +276,6 @@ int main(int argc, char* argv[]) {
             int target = instruction_labels[terms[1]];
             write_binary(encode_Jtype(3, target), inst_outfile);
         
-        // Pseudoinstruction: la
-        } else if (inst_type == "la") {
-            // la $rt, label -> addi $rt, $zero, address
-            int address = static_labels[terms[2]];
-            write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
-        
         // Special instruction: syscall
         } else if (inst_type == "syscall") {
             write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
@@ -234,7 +283,15 @@ int main(int argc, char* argv[]) {
         } else {
             cerr << "Error: Unknown instruction " << inst_type << endl;
         }
+        current_instruction++;
     }
+    
+    // Close files and show completion message
+    static_outfile.close();
+    inst_outfile.close();
+    
+    cout << "Assembly completed successfully!" << endl;
+    cout << "Output files created in output/ directory" << endl;
 }
 
 #endif
