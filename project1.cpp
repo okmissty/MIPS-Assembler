@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
                 exit(1);
             }
         
-        // Pseudoinstruction: la
+        // Pseudo instructions
         } else if (inst_type == "la") {
             // la $rt, label -> addi $rt, $zero, address
             if (terms.size() < 3) {
@@ -305,7 +305,7 @@ int main(int argc, char* argv[]) {
                 exit(1);
             }
         
-        // Special instruction: syscall
+        // Special instructions
         } else if (inst_type == "syscall") {
             write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
         
