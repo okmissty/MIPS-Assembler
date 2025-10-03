@@ -5,17 +5,18 @@ OBJS = project1.o
 
 # For *nix and Mac
 CC = g++
-CCFLAGS	 = -std=c++17 
+CCFLAGS	 = -std=c++17 -I .
 
-# Will need to do something different on Windows
+# On some older toolchains std::filesystem requires linking to stdc++fs. Try without first.
+FS_LIB :=
 
 all: $(EXECS)
 
 assemble: $(OBJS)
-	$(CC) $(CCFLAGS) -I . $^ -o $@
+	$(CC) $(CCFLAGS) $^ -o $@ $(FS_LIB)
 
 %.o: %.cpp *.h
-	$(CC) $(CCFLAGS) -I . -c $<
+	$(CC) $(CCFLAGS) -c $<
 
 clean:
 	/bin/rm -f a.out $(OBJS) $(EXECS)

@@ -26,27 +26,48 @@ void ensureOutputDirectory() {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) { // At least one input file is required
-        cerr << "Expected Usage:\n ./assemble infile1.asm [infile2.asm ...]\n" << endl;
-        cerr << "Output files will be automatically organized in the 'output/' directory\n" << endl;
-        exit(1);
-    }
-    
-    // Ensure output directory exists
-    ensureOutputDirectory();
-    
-    // Generate output filenames based on input files
-    string output_prefix;
-    if (argc == 2) {
-        // Single file: use its base name
-        output_prefix = getBaseFilename(argv[1]);
-    } else {
-        // Multiple files: use "combined" or first file's name
-        output_prefix = getBaseFilename(argv[1]) + "_combined";
-    }
-    
-    string static_filename = "output/" + output_prefix + "_static.bin";
-    string inst_filename = "output/" + output_prefix + "_inst.bin";
+    // Program expects: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
+        // Two supported invocation styles:
+        // 1) Legacy single-arg behavior: ./assemble infile.asm
+        //    -> outputs to output/<basename>_static.bin and output/<basename>_inst.bin
+        // 2) New spec behavior: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
+        //    -> first n-2 args are input files, next is static output, last is instruction output
+
+        vector<string> inputFiles;
+        string static_filename;
+        string inst_filename;
+
+        if (argc == 2) {
+            // Legacy behavior
+            inputFiles.push_back(string(argv[1]));
+            string output_prefix = getBaseFilename(argv[1]);
+            static_filename = string("output/") + output_prefix + string("_static.bin");
+            inst_filename = string("output/") + output_prefix + string("_inst.bin");
+
+            // Ensure output directory exists
+            ensureOutputDirectory();
+        } else if (argc >= 4) {
+            int argCount = argc - 1; // excluding program name
+            int numInputFiles = argCount - 2;
+            for (int i = 1; i <= numInputFiles; ++i) {
+                inputFiles.push_back(string(argv[i]));
+            }
+            static_filename = string(argv[argc - 2]);
+            inst_filename = string(argv[argc - 1]);
+
+            // Ensure parent directories for output files exist
+            try {
+                filesystem::path staticPath(static_filename);
+                filesystem::path instPath(inst_filename);
+                if (staticPath.has_parent_path()) filesystem::create_directories(staticPath.parent_path());
+                if (instPath.has_parent_path()) filesystem::create_directories(instPath.parent_path());
+            } catch (const std::exception &e) {
+                cerr << "Warning: could not create output directories: " << e.what() << endl;
+            }
+        } else {
+            cerr << "Expected Usage:\n ./assemble infile.asm\n OR\n ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin\n" << endl;
+            return 1;
+        }
     
     //Prepare output files
     ofstream inst_outfile, static_outfile;
@@ -86,11 +107,11 @@ int main(int argc, char* argv[]) {
     int data_address = 0;                           // current byte address in .data
     int instruction_count = 0;                      // current instruction number in .text
 
-    //For each input file:
-    for (int i = 1; i < argc; i++) {
-        ifstream infile(argv[i]); //  open the input file for reading
+    // For each input file (order matters when multiple files provided)
+    for (size_t i = 0; i < inputFiles.size(); ++i) {
+        ifstream infile(inputFiles[i]); //  open the input file for reading
         if (!infile) { // if file can't be opened, need to let the user know
-            cerr << "Error: could not open file: " << argv[i] << endl;
+            cerr << "Error: could not open file: " << inputFiles[i] << endl;
             exit(1);
         }
 
@@ -107,13 +128,22 @@ int main(int argc, char* argv[]) {
             } else if (str == ".text") { // .text section
                 current_section = TEXT;
             } else {
-                // Skip .globl directives
+                // Handle .globl directives
                 if (str.find(".globl") != string::npos) {
                     continue;
                 }
-                
-                string content = str;  // Default: treat entire line as content                
-                
+
+                // Treat a dot-prefixed single token like ".main" as an implicit label in .text
+                if (!str.empty() && str[0] == '.' && str.find(' ') == string::npos && str.find('\t') == string::npos) {
+                    string label = str.substr(1); // drop the leading dot
+                    // ensure we are in TEXT section
+                    current_section = TEXT;
+                    instruction_labels[label] = instruction_count;
+                    continue; // no further content on this line
+                }
+
+                string content = str;  // Default: treat entire line as content
+
                 // Checks if the line contains a label (aka has colon)
                 if (str.find(':') != string::npos) {
                     // If there is a label then we extract it
@@ -122,9 +152,9 @@ int main(int argc, char* argv[]) {
 
                     // Trim whitespace from content
                     content = ltrim(content);
-                    
+
                     // Store label in appropriate symbol table
-                    if (current_section == DATA) {                      
+                    if (current_section == DATA) {
                         static_labels[label] = data_address; // Map label to current byte address
                     } else if (current_section == TEXT) {
                         instruction_labels[label] = instruction_count; // Map label to current instruction number
