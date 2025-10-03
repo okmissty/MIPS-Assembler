@@ -135,53 +135,78 @@ int main(int argc, char* argv[]) {
         string inst_type = terms[0];
         
         // R type instructions: int opcode, int rs, int rt, int rd, int shftamt, int funccode
-        if (inst_type == "add"){
+        if (inst_type == "add") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
-        } else if (inst_type == "sub"){
-            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
-        } else if (inst_type == "mult"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
-        } else if (inst_type == "div"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
-        } else if (inst_type == "mflo"){
-            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
-        } else if (inst_type == "mfhi"){
-            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
-        } else if (inst_type == "sll"){
-            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 0), inst_outfile);
-        } else if (inst_type == "srl"){
-            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 2), inst_outfile);
-        } else if (inst_type == "jr"){
+        } else if (inst_type == "sub") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 34), inst_outfile);
+        } else if (inst_type == "mult") {
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 24), inst_outfile);
+        } else if (inst_type == "div") {
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 26), inst_outfile);
+        } else if (inst_type == "mflo") {
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 18), inst_outfile);
+        } else if (inst_type == "mfhi") {
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 16), inst_outfile);
+        } else if (inst_type == "sll") {
+            // sll rd, rt, shamt
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 0), inst_outfile);
+        } else if (inst_type == "srl") {
+            // srl rd, rt, shamt
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 2), inst_outfile);
+        } else if (inst_type == "jr") {
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
-        } else if (inst_type == "jalr"){ 
-            write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[3]], 0, 9), inst_outfile); //check here
-        } else if (inst_type == "slt"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 0, 32), inst_outfile);
-
-        // I type instructions: int opcode, int rs, int rt, int imm
-        } else if (inst_type == "lw"){
-            write_binary(encode_Itype(0, registers[terms[1]], registers[terms[2]], registers[3]), inst_outfile);
-        } else if (inst_type == "sw"){
-            write_binary(encode_Itype(0, registers[terms[1]], registers[terms[2]], registers[3]), inst_outfile);
-        // } else if (inst_type == "addi"){
-        //     write_binary(encode_Itype());
-        // } else if (inst_type == "beq"){ 
-        // } else if (inst_type == "bne"){ 
-        //     write_binary(encode_Itype());
-
-        // // J type instructions: int opcode, int address
-        // } else if (inst_type == "j"){
-        //     write_binary(encode_Jtype());
-        // } else if (inst_type == "jal"){
-        //     write_binary(encode_Jtype());
+        } else if (inst_type == "jalr") {
+            if (terms.size() == 2) {
+                // jalr $r0 -> store PC+4 in $ra, jump to $r0
+                write_binary(encode_Rtype(0, registers[terms[1]], 0, 31, 0, 9), inst_outfile);
+            } else {
+                // jalr $r0, $r1 -> store PC+4 in $r1, jump to $r0
+                write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[2]], 0, 9), inst_outfile);
+            }
+        } else if (inst_type == "slt") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
         
-        // // Special Instructions
-        // } else if (inst_type == "Syscall"){
-        //     write_binary(encode_Jtype());
-
-        // invalid instruction
+        // I-type instructions
+        } else if (inst_type == "addi") {
+            int imm = stoi(terms[3]);
+            write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
+        } else if (inst_type == "lw") {
+            // lw $rt, offset($rs)
+            int offset = stoi(terms[2]);
+            write_binary(encode_Itype(35, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
+        } else if (inst_type == "sw") {
+            // sw $rt, offset($rs)
+            int offset = stoi(terms[2]);
+            write_binary(encode_Itype(43, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
+        } else if (inst_type == "beq") {
+            int target = instruction_labels[terms[3]];
+            int offset = target - (line_num + 1);
+            write_binary(encode_Itype(4, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+        } else if (inst_type == "bne") {
+            int target = instruction_labels[terms[3]];
+            int offset = target - (line_num + 1);
+            write_binary(encode_Itype(5, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+        
+        // J-type instructions
+        } else if (inst_type == "j") {
+            int target = instruction_labels[terms[1]];
+            write_binary(encode_Jtype(2, target), inst_outfile);
+        } else if (inst_type == "jal") {
+            int target = instruction_labels[terms[1]];
+            write_binary(encode_Jtype(3, target), inst_outfile);
+        
+        // Pseudoinstruction: la
+        } else if (inst_type == "la") {
+            // la $rt, label -> addi $rt, $zero, address
+            int address = static_labels[terms[2]];
+            write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
+        
+        // Special instruction: syscall
+        } else if (inst_type == "syscall") {
+            write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
+        
         } else {
-            cout << "Error" << endl;
+            cerr << "Error: Unknown instruction " << inst_type << endl;
         }
     }
 }
