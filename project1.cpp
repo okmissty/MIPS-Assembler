@@ -104,9 +104,9 @@ int main(int argc, char* argv[]) {
             }
             
             // Phase 1: Process sections and labels
-            if (str == ".data") {                                   // Found start of .data section
+            if (str == ".data") { // .data section
                 current_section = DATA;
-            } else if (str == ".text") {                            // Found start of .text section
+            } else if (str == ".text") { // .text section
                 current_section = TEXT;
             } else {
                 // Skip .globl directives
@@ -116,9 +116,9 @@ int main(int argc, char* argv[]) {
                 
                 string content = str;  // Default: treat entire line as content                
                 
-                // Check if line contains a label (has colon)
+                // Checks if the line contains a label (aka has colon)
                 if (str.find(':') != string::npos) {
-                    // Found a label --> extract it
+                    // If there is a label then we extract it
                     string label = str.substr(0, str.find(':'));
                     content = str.substr(str.find(':') + 1);
 
@@ -127,9 +127,9 @@ int main(int argc, char* argv[]) {
                     
                     // Store label in appropriate symbol table
                     if (current_section == DATA) {                      
-                        static_labels[label] = data_address;            // Map label to current byte address
+                        static_labels[label] = data_address; // Map label to current byte address
                     } else if (current_section == TEXT) {
-                        instruction_labels[label] = instruction_count;  // Map label to current instruction number
+                        instruction_labels[label] = instruction_count; // Map label to current instruction number
                     }
                 }
                 
@@ -163,39 +163,35 @@ int main(int argc, char* argv[]) {
      * Process all static memory, output to static memory file
      * Parse .word directives and write data to static memory binary file
      */
-    for (const string& data_line : data_section) {
-        vector<string> terms = split(data_line, WHITESPACE);
+    for (const string& line : data_section) {
+        vector<string> terms = split(line, WHITESPACE);
         
         if (terms.size() > 0 && terms[0] == ".word") {
-            // Process each value after .word
+            // Processes each value after .word
             for (int i = 1; i < terms.size(); i++) {
                 string value = terms[i];
                 int data_value;
                 
-                // Check if this is a numeric literal or a label reference
+                // Checks if this is a numeric literal or a label reference
                 if (isdigit(value[0]) || (value[0] == '-' && value.length() > 1)) {
-                    // It's a numeric literal
+                    // The term is a numerical value
                     data_value = stoi(value);
                 } else {
-                    // It's a label reference - look it up in instruction_labels
+                    // Else its a label reference so it looks for it in the instruction labels
                     if (instruction_labels.find(value) != instruction_labels.end()) {
-                        // Convert instruction number to byte address (multiply by 4)
+                        // Converts instruction numbers to its byte address (aka multiply by 4)
                         data_value = instruction_labels[value] * 4;
                     } else {
                         cerr << "Error: undefined label '" << value << "' in .data section" << endl;
                         exit(1);
                     }
                 }
-                
-                // Write the 4-byte integer to static memory file
+                // It will write the integer to static memory file
                 write_binary(data_value, static_outfile);
             }
         }
     }
     
-
-
-
     /** Phase 3
      * - Goes through each instruction and properly encodes 
      * Process all instructions, output to instruction memory file
@@ -228,26 +224,13 @@ int main(int argc, char* argv[]) {
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
         } else if (inst_type == "jalr") {
             if (terms.size() == 2) {
-                // jalr $r0 -> store PC+4 in $ra, jump to $r0
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, 31, 0, 9), inst_outfile);
             } else {
-                // jalr $r0, $r1 -> store PC+4 in $r1, jump to $r0
+                // In the case that there are two registers, it will store in $r1 and jump to $r0
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[2]], 0, 9), inst_outfile);
             }
         } else if (inst_type == "slt") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
-        
-        // I-type instructions
-        } else if (inst_type == "la") {
-            // la is a pseudoinstruction - convert to addi with static memory address
-            string label = terms[2];
-            if (static_labels.find(label) != static_labels.end()) {
-                int address = static_labels[label];
-                write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile); // addi $rt, $zero, address
-            } else {
-                cerr << "Error: undefined static label '" << label << "' in la instruction" << endl;
-                exit(1);
-            }
         } else if (inst_type == "addi") {
             int imm = stoi(terms[3]);
             write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
@@ -276,6 +259,12 @@ int main(int argc, char* argv[]) {
             int target = instruction_labels[terms[1]];
             write_binary(encode_Jtype(3, target), inst_outfile);
         
+        // Pseudoinstruction: la
+        } else if (inst_type == "la") {
+            // la $rt, label -> addi $rt, $zero, address
+            int address = static_labels[terms[2]];
+            write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
+        
         // Special instruction: syscall
         } else if (inst_type == "syscall") {
             write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
@@ -284,6 +273,8 @@ int main(int argc, char* argv[]) {
             cerr << "Error: Unknown instruction " << inst_type << endl;
         }
         current_instruction++;
+        // After an iteration we increment the line number for the next instruction!!
+        line_num++ 
     }
     
     // Close files and show completion message
