@@ -27,7 +27,7 @@ void ensureOutputDirectory() {
 
 int main(int argc, char* argv[]) {
     // Program expects: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
-        // Two supported invocation styles:
+        // Two formats:
         // 1) Legacy single-arg behavior: ./assemble infile.asm
         //    -> outputs to output/<basename>_static.bin and output/<basename>_inst.bin
         // 2) New spec behavior: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
