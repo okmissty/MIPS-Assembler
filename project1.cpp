@@ -116,10 +116,37 @@ int main(int argc, char* argv[]) {
 
     /** Phase 2
      * Process all static memory, output to static memory file
-     * TODO: All of this
-        // Make a binary file that contains all of the data .word 2 4 5
-        // find a way to map labels to line numbers
+     * Parse .word directives and write data to static memory binary file
      */
+    for (const string& data_line : data_section) {
+        vector<string> terms = split(data_line, WHITESPACE);
+        
+        if (terms.size() > 0 && terms[0] == ".word") {
+            // Process each value after .word
+            for (int i = 1; i < terms.size(); i++) {
+                string value = terms[i];
+                int data_value;
+                
+                // Check if this is a numeric literal or a label reference
+                if (isdigit(value[0]) || (value[0] == '-' && value.length() > 1)) {
+                    // It's a numeric literal
+                    data_value = stoi(value);
+                } else {
+                    // It's a label reference - look it up in instruction_labels
+                    if (instruction_labels.find(value) != instruction_labels.end()) {
+                        // Convert instruction number to byte address (multiply by 4)
+                        data_value = instruction_labels[value] * 4;
+                    } else {
+                        cerr << "Error: undefined label '" << value << "' in .data section" << endl;
+                        exit(1);
+                    }
+                }
+                
+                // Write the 4-byte integer to static memory file
+                write_binary(data_value, static_outfile);
+            }
+        }
+    }
     
 
 
@@ -137,31 +164,56 @@ int main(int argc, char* argv[]) {
         if (inst_type == "add"){
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
         } else if (inst_type == "sub"){
-            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 34), inst_outfile);
         } else if (inst_type == "mult"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 24), inst_outfile);
         } else if (inst_type == "div"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 26), inst_outfile);
         } else if (inst_type == "mflo"){
-            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 18), inst_outfile);
         } else if (inst_type == "mfhi"){
-            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 16), inst_outfile);
         } else if (inst_type == "sll"){
-            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 0), inst_outfile);
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 0), inst_outfile);
         } else if (inst_type == "srl"){
-            write_binary(encode_Rtype(0, 0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 2), inst_outfile);
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 2), inst_outfile);
         } else if (inst_type == "jr"){
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
         } else if (inst_type == "jalr"){ 
-            write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[3]], 0, 9), inst_outfile); //check here
+            if (terms.size() == 2) {
+                // jalr $r0 - jump to $r0, store return address in $ra
+                write_binary(encode_Rtype(0, registers[terms[1]], 0, 31, 0, 9), inst_outfile);
+            } else {
+                // jalr $r0, $r1 - jump to $r0, store return address in $r1
+                write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[2]], 0, 9), inst_outfile);
+            }
         } else if (inst_type == "slt"){
-            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], registers[terms[3]], 0, 32), inst_outfile);
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
 
-        // I type instructions: int opcode, int rs, int rt, int imm
+        // I type instructions: int opcode, int rs, int rt, int imm  
+        } else if (inst_type == "la") {
+            // la is a pseudoinstruction - convert to addi with static memory address
+            string label = terms[2];
+            if (static_labels.find(label) != static_labels.end()) {
+                int address = static_labels[label];
+                write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile); // addi $rt, $zero, address
+            } else {
+                cerr << "Error: undefined static label '" << label << "' in la instruction" << endl;
+                exit(1);
+            }
+        } else if (inst_type == "addi"){
+            int imm = stoi(terms[3]);
+            write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
         } else if (inst_type == "lw"){
-            write_binary(encode_Itype(0, registers[terms[1]], registers[terms[2]], registers[3]), inst_outfile);
+            // lw $rt, offset($rs) - need to parse offset from terms[2]
+            string offset_reg = terms[2]; 
+            // For now, assume simple format - this may need more complex parsing
+            write_binary(encode_Itype(35, registers[terms[2]], registers[terms[1]], 0), inst_outfile);
         } else if (inst_type == "sw"){
-            write_binary(encode_Itype(0, registers[terms[1]], registers[terms[2]], registers[3]), inst_outfile);
+            // sw $rt, offset($rs) - need to parse offset from terms[2]
+            string offset_reg = terms[2];
+            // For now, assume simple format - this may need more complex parsing  
+            write_binary(encode_Itype(43, registers[terms[2]], registers[terms[1]], 0), inst_outfile);
         // } else if (inst_type == "addi"){
         //     write_binary(encode_Itype());
         // } else if (inst_type == "beq"){ 

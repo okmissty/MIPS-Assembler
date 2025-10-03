@@ -63,14 +63,14 @@ int encode_Rtype(int opcode, int rs, int rt, int rd, int shftamt, int funccode){
     return (opcode << 26) + (rs << 21) + (rt << 16) + (rd << 11) + (shftamt << 6) + funccode; // shifts by int 
 }
 
-// Utility function for encoding an arithmetic "I" type function: Has an immediete involved
+// Utility function for encoding an arithmetic "I" type function: Has an immediate involved
 int encode_Itype(int opcode, int rs, int rt, int imm){
-    return 0; 
+    return (opcode << 26) + (rs << 21) + (rt << 16) + (imm & 0xFFFF);
 }
 
 // Utility function for encoding an arithmetic "J" type function: Jumps to address
 int encode_Jtype(int opcode, int address){
-    return 0; 
+    return (opcode << 26) + (address & 0x3FFFFFF);
 }
 
 /**
