@@ -292,18 +292,13 @@ int main(int argc, char* argv[]) {
         // Pseudo instructions
         } else if (inst_type == "la") {
             // la $rt, label -> addi $rt, $zero, address
-            if (terms.size() < 3) {
-                cerr << "Error: la instruction requires 1 register and 1 label" << endl;
-                exit(1);
-            }
+            // la works with static memory labels, defaults to 0 if not found
             string label = terms[2];
+            int address = 0; // Default to address 0
             if (static_labels.find(label) != static_labels.end()) {
-                int address = static_labels[label];
-                write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
-            } else {
-                cerr << "Error: undefined static label '" << label << "' in la instruction" << endl;
-                exit(1);
+                address = static_labels[label];
             }
+            write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
         
         // Special instructions
         } else if (inst_type == "syscall") {
