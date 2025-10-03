@@ -68,20 +68,22 @@ test_with_gold_binary() {
   # Allow multiple input files (space separated) to be passed in $asmFile
   read -r -a asmFiles <<< "$asmFile"
 
-  # Ensure output directory exists
+  # Ensure output directories exist
   mkdir -p output
+  mkdir -p output/student_txt
+  mkdir -p output/binaries
 
   # Call assembler with input files followed by static and inst output filenames
-  "$ASSEMBLE_BIN" "${asmFiles[@]}" "output/${testName}_static.bin" "output/${testName}_inst.bin"
+  "$ASSEMBLE_BIN" "${asmFiles[@]}" "output/binaries/${testName}_static.bin" "output/binaries/${testName}_inst.bin"
   if [[ $? -ne 0 ]]; then
     echo "❌ $testName FAILED (Assembly error)"
     return
   fi
 
   # Test instruction binary (store comparison dumps in output/)
-  goldFile="output/${testName}_gold_inst.txt"
-  mineFile="output/${testName}_mine_inst.txt"
-  outputInstBin="output/${testName}_inst.bin"
+  goldFile="output/student_txt/${testName}_gold_inst.txt"
+  mineFile="output/student_txt/${testName}_student_inst.txt"
+  outputInstBin="output/binaries/${testName}_inst.bin"
 
   if ! ./readbytes "$goldInstBin" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+/ /g; s/[[:space:]]+$//' > "$goldFile"; then
     echo "Failed: readbytes on $goldInstBin" >&2
@@ -103,9 +105,9 @@ test_with_gold_binary() {
 
   # Test static memory binary if provided and exists
   if [[ -n "$goldStaticBin" && -f "$goldStaticBin" ]]; then
-  goldStaticFile="output/${testName}_gold_static.txt"
-  mineStaticFile="output/${testName}_mine_static.txt"
-    outputStaticBin="output/${testName}_static.bin"
+  goldStaticFile="output/student_txt/${testName}_gold_static.txt"
+  mineStaticFile="output/student_txt/${testName}_student_static.txt"
+  outputStaticBin="output/binaries/${testName}_static.bin"
 
   if ! ./readbytes "$goldStaticBin" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+/ /g; s/[[:space:]]+$//' > "$goldStaticFile"; then
       echo "Failed: readbytes on $goldStaticBin" >&2
@@ -152,6 +154,19 @@ echo "=== Testing AA-2a Cases (Application Analysis Test Suite) ==="
 # These don't have gold binaries, but we can test they assemble without errors
 aa2aTests=(arithmetic branches jumps memory)
 
+# Detect AA-2a test folder (support several possible names)
+AA2A_DIR=""
+for candidate in "Testcases/AA-2a" "Testcases/aa-2a" "Testcases/AA-2a Answer Key" "Testcases/aa-2a Answer Key"; do
+  if [[ -d "$candidate" ]]; then
+    AA2A_DIR="$candidate"
+    break
+  fi
+done
+if [[ -z "$AA2A_DIR" ]]; then
+  # fallback to older path used previously
+  AA2A_DIR="Testcases/AA-2a"
+fi
+
 # Locate assembler binary once for AA-2a tests (reuse logic from above)
 ASSEMBLE_BIN=""
 if [[ -x "./assemble" ]]; then
@@ -183,19 +198,19 @@ for test in "${aa2aTests[@]}"; do
     continue
   fi
 
-  # assemble into output/<test>_{static,inst}.bin
-  if ! "$ASSEMBLE_BIN" "Testcases/AA-2a/${test}.asm" "output/${test}_static.bin" "output/${test}_inst.bin"; then
+  # assemble into output/binaries/<test>_{static,inst}.bin
+  if ! "$ASSEMBLE_BIN" "${AA2A_DIR}/${test}.asm" "output/binaries/${test}_static.bin" "output/binaries/${test}_inst.bin"; then
     echo "❌ $test FAILED (assembly error)"
     continue
   fi
 
   # Produce readbytes dumps for produced binaries
-  instBin="output/${test}_inst.bin"
-  staticBin="output/${test}_static.bin"
-  mineInstTxt="output/${test}_mine_inst.txt"
-  mineStaticTxt="output/${test}_mine_static.txt"
-  goldInstTxt="Testcases/AA-2a/${test}_inst.bin.txt"
-  goldStaticTxt="Testcases/AA-2a/${test}_static.bin.txt"
+  instBin="output/binaries/${test}_inst.bin"
+  staticBin="output/binaries/${test}_static.bin"
+  mineInstTxt="output/student_txt/${test}_student_inst.txt"
+  mineStaticTxt="output/student_txt/${test}_student_static.txt"
+  goldInstTxt="${AA2A_DIR}/${test}_inst.bin.txt"
+  goldStaticTxt="${AA2A_DIR}/${test}_static.bin.txt"
 
   ok=true
   if [[ -f "$instBin" ]]; then
@@ -205,7 +220,7 @@ for test in "${aa2aTests[@]}"; do
     fi
     if [[ -f "$goldInstTxt" ]]; then
       # create a normalized version of the gold (trim trailing spaces) for diff
-      goldInstNorm="/tmp/gold_${test}_inst.txt"
+  goldInstNorm="/tmp/gold_${test}_inst.txt"
   sed -E 's/^[[:space:]]+//; s/[[:space:]]+/ /g; s/[[:space:]]+$//' "$goldInstTxt" > "$goldInstNorm" || cp "$goldInstTxt" "$goldInstNorm"
       # Ensure normalized gold ends with a newline (some gold files may lack final newline)
       if [[ $(tail -c1 "$goldInstNorm" | wc -l) -eq 0 ]]; then
@@ -230,7 +245,7 @@ for test in "${aa2aTests[@]}"; do
       ok=false
     fi
     if [[ -f "$goldStaticTxt" ]]; then
-      goldStaticNorm="/tmp/gold_${test}_static.txt"
+  goldStaticNorm="/tmp/gold_${test}_static.txt"
   sed -E 's/^[[:space:]]+//; s/[[:space:]]+/ /g; s/[[:space:]]+$//' "$goldStaticTxt" > "$goldStaticNorm" || cp "$goldStaticTxt" "$goldStaticNorm"
       # Ensure normalized gold ends with a newline
       if [[ $(tail -c1 "$goldStaticNorm" | wc -l) -eq 0 ]]; then
@@ -270,5 +285,5 @@ else
 fi
 
 echo
-echo "Comparison files created in output/ directory for manual inspection:"
-ls -1 output/*_gold_*.txt output/*_mine_*.txt 2>/dev/null || true
+echo "Comparison files created in output/student_txt/ directory for manual inspection:"
+ls -1 output/student_txt/*_gold_*.txt output/student_txt/*_student_*.txt 2>/dev/null || true
