@@ -172,6 +172,19 @@ int main(int argc, char* argv[]) {
                             vector<string> terms = split(content, WHITESPACE);
                             data_address += (terms.size() - 1) * 4; // Each .word is 4 bytes
                         }
+
+                        // Challenge: 5 stars
+                        else if (content.find(".asciiz") != string::npos) {
+                            // Extract string between quotes
+                            size_t first_quote = content.find('"');
+                            size_t last_quote = content.rfind('"');
+
+                            if (first_quote != string::npos && last_quote != string::npos && first_quote < last_quote) {
+                                string str_content = content.substr(first_quote + 1, last_quote - first_quote - 1);
+                                // Each character takes 4 bytes, plus null terminator
+                                data_address += (str_content.length() + 1) * 4;
+                            }
+                        }
                     }
                 } else if (current_section == TEXT) {
                     // Text section, processes content if anything is present
@@ -330,10 +343,56 @@ int main(int argc, char* argv[]) {
             }
             write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
         
+        // Challenge: bge  (1 star)
+        // bge $rs, $rt, label -> slt $at, $rs, $rt; beq $at, $zero, label
+        } else if (inst_type == "bge") {
+        write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
+        current_instruction++;
+        
+        int target = instruction_labels[terms[3]];
+        int offset = target - (current_instruction + 1);
+        write_binary(encode_Itype(4, 1, 0, offset), inst_outfile);
+
+        // Challenge: ble (1 star)
+        // ble $rs, $rt, label -> slt $at, $rt, $rs; bne $at, $zero, label
+        } else if (inst_type == "ble") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[1]], 1, 0, 42), inst_outfile);
+            current_instruction++;
+            
+            int target = instruction_labels[terms[3]];
+            int offset = target - (current_instruction + 1);
+            write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+
+        // Challenge: mov (0.5 star)
+        } else if (inst_type == "mov") {
+            write_binary(encode_Rtype(0, registers[terms[2]], 0, registers[terms[1]], 0, 32), inst_outfile);
+
+        // Challenge: li (0.5 star)
+        } else if (inst_type == "li") {
+            int imm = stoi(terms[2]);
+            write_binary(encode_Itype(8, 0, registers[terms[1]], imm), inst_outfile);
+
+        // Challenge: AND (0.5 star)
+        } else if (inst_type == "and") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 36), inst_outfile);
+
+        // Challenge: OR  (0.5 star)
+        } else if (inst_type == "or") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 37), inst_outfile);
+
+        // Challenge: blt (1 star)
+        } else if (inst_type == "blt") {
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
+            current_instruction++;
+            
+            int target = instruction_labels[terms[3]];
+            int offset = target - (current_instruction + 1);
+            write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+                
         // Special instructions
         } else if (inst_type == "syscall") {
-            write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
-        
+                write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
+            
         } else {
             cerr << "Error: Unknown instruction '" << inst_type << "'" << endl;
             exit(1);
