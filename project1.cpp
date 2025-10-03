@@ -259,13 +259,13 @@ int main(int argc, char* argv[]) {
             int target = instruction_labels[terms[1]];
             write_binary(encode_Jtype(3, target), inst_outfile);
         
-        // Pseudoinstruction: la
+        // Pseudo instructions
         } else if (inst_type == "la") {
             // la $rt, label -> addi $rt, $zero, address
             int address = static_labels[terms[2]];
             write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
         
-        // Special instruction: syscall
+        // Special instructions
         } else if (inst_type == "syscall") {
             write_binary(encode_Rtype(0, 0, 0, 26, 0, 12), inst_outfile);
         
