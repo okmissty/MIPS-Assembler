@@ -64,16 +64,16 @@ int main(int argc, char* argv[]) {
             }
             
             // Phase 1: Process sections and labels
-            if (str == ".data") {                                   // Found start of .data section
+            if (str == ".data") { // .data section
                 current_section = DATA;
-            } else if (str == ".text") {                            // Found start of .text section
+            } else if (str == ".text") { // .text section
                 current_section = TEXT;
             } else {
                 string content = str;  // Default: treat entire line as content                
                 
-                // Check if line contains a label (has colon)
+                // Checks if the line contains a label (aka has colon)
                 if (str.find(':') != string::npos) {
-                    // Found a label --> extract it
+                    // If there is a label then we extract it
                     string label = str.substr(0, str.find(':'));
                     content = str.substr(str.find(':') + 1);
 
@@ -82,9 +82,9 @@ int main(int argc, char* argv[]) {
                     
                     // Store label in appropriate symbol table
                     if (current_section == DATA) {                      
-                        static_labels[label] = data_address;            // Map label to current byte address
+                        static_labels[label] = data_address; // Map label to current byte address
                     } else if (current_section == TEXT) {
-                        instruction_labels[label] = instruction_count;  // Map label to current instruction number
+                        instruction_labels[label] = instruction_count; // Map label to current instruction number
                     }
                 }
                 
@@ -152,6 +152,7 @@ int main(int argc, char* argv[]) {
      * Process all instructions, output to instruction memory file
      * TODO: Almost all of this, it only works for adds
      */ 
+    int line_num = 0;
     for(string inst : text_section) {  // Changed from 'instructions' to 'text_section'
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
@@ -229,6 +230,8 @@ int main(int argc, char* argv[]) {
         } else {
             cerr << "Error: Unknown instruction " << inst_type << endl;
         }
+        // After an iteration we increment the line number for the next instruction!!
+        line_num++ 
     }
 }
 
