@@ -272,9 +272,8 @@ int main(int argc, char* argv[]) {
         } else {
             cerr << "Error: Unknown instruction " << inst_type << endl;
         }
-        current_instruction++;
         // After an iteration we increment the line number for the next instruction!!
-        line_num++ 
+        current_instruction++;
     }
     
     // Close files and show completion message
