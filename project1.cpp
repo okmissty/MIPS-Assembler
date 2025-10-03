@@ -118,39 +118,35 @@ int main(int argc, char* argv[]) {
      * Process all static memory, output to static memory file
      * Parse .word directives and write data to static memory binary file
      */
-    for (const string& data_line : data_section) {
-        vector<string> terms = split(data_line, WHITESPACE);
+    for (const string& line : data_section) {
+        vector<string> terms = split(line, WHITESPACE);
         
         if (terms.size() > 0 && terms[0] == ".word") {
-            // Process each value after .word
+            // Processes each value after .word
             for (int i = 1; i < terms.size(); i++) {
                 string value = terms[i];
                 int data_value;
                 
-                // Check if this is a numeric literal or a label reference
+                // Checks if this is a numeric literal or a label reference
                 if (isdigit(value[0]) || (value[0] == '-' && value.length() > 1)) {
-                    // It's a numeric literal
+                    // The term is a numerical value
                     data_value = stoi(value);
                 } else {
-                    // It's a label reference - look it up in instruction_labels
+                    // Else its a label reference so it looks for it in the instruction labels
                     if (instruction_labels.find(value) != instruction_labels.end()) {
-                        // Convert instruction number to byte address (multiply by 4)
+                        // Converts instruction numbers to its byte address (aka multiply by 4)
                         data_value = instruction_labels[value] * 4;
                     } else {
                         cerr << "Error: undefined label '" << value << "' in .data section" << endl;
                         exit(1);
                     }
                 }
-                
-                // Write the 4-byte integer to static memory file
+                // It will write the integer to static memory file
                 write_binary(data_value, static_outfile);
             }
         }
     }
     
-
-
-
     /** Phase 3
      * - Goes through each instruction and properly encodes 
      * Process all instructions, output to instruction memory file
@@ -183,10 +179,9 @@ int main(int argc, char* argv[]) {
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
         } else if (inst_type == "jalr") {
             if (terms.size() == 2) {
-                // jalr $r0 -> store PC+4 in $ra, jump to $r0
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, 31, 0, 9), inst_outfile);
             } else {
-                // jalr $r0, $r1 -> store PC+4 in $r1, jump to $r0
+                // In the case that there are two registers, it will store in $r1 and jump to $r0
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[2]], 0, 9), inst_outfile);
             }
         } else if (inst_type == "slt") {
@@ -221,7 +216,7 @@ int main(int argc, char* argv[]) {
             int target = instruction_labels[terms[1]];
             write_binary(encode_Jtype(3, target), inst_outfile);
         
-        // Pseudoinstruction: la
+        // Pseudo instructions
         } else if (inst_type == "la") {
             // la $rt, label -> addi $rt, $zero, address
             int address = static_labels[terms[2]];
