@@ -14,40 +14,40 @@
 
 using namespace std;
 
-// Helper function to extract base filename without path and extension
+// A helper function to get the base filename without path and extension
 string getBaseFilename(const string& filepath) {
     filesystem::path p(filepath);
     return p.stem().string();
 }
 
-// Helper function to ensure output directory exists
+// A helper function that makes sure the desired output directory exists
 void ensureOutputDirectory() {
-    filesystem::create_directories("output");
+    filesystem::create_directories("output"); 
 }
 
 int main(int argc, char* argv[]) {
-    // Program expects: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
-        // Two formats:
-        // 1) Legacy single-arg behavior: ./assemble infile.asm
-        //    -> outputs to output/<basename>_static.bin and output/<basename>_inst.bin
-        // 2) New spec behavior: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
-        //    -> first n-2 args are input files, next is static output, last is instruction output
+    // Main expects: ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin
+    // We made it so that it can allow for one argument, ex. ./assemble infile.asm that will output 
+    // to output/<basename>_static.bin and output/<basename>_inst.bin
+    // 
+    // ./assemble demo1.asm [demo2.asm ...] static_output.bin inst_output.bin
+    //  the first n-2 args are input files, next is static output, last is instruction output
 
         vector<string> inputFiles;
         string static_filename;
         string inst_filename;
 
         if (argc == 2) {
-            // Legacy behavior
+            // Essentially prepares the legacy for the input files
             inputFiles.push_back(string(argv[1]));
             string output_prefix = getBaseFilename(argv[1]);
             static_filename = string("output/") + output_prefix + string("_static.bin");
             inst_filename = string("output/") + output_prefix + string("_inst.bin");
 
-            // Ensure output directory exists
+            // Ensures the output directory exists
             ensureOutputDirectory();
         } else if (argc >= 4) {
-            int argCount = argc - 1; // excluding program name
+            int argCount = argc - 1; // excludes the program's name
             int numInputFiles = argCount - 2;
             for (int i = 1; i <= numInputFiles; ++i) {
                 inputFiles.push_back(string(argv[i]));
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     
-    //Prepare output files
+    //Prepares output files
     ofstream inst_outfile, static_outfile;
     static_outfile.open(static_filename, ios::binary);
     inst_outfile.open(inst_filename, ios::binary);
@@ -95,17 +95,17 @@ int main(int argc, char* argv[]) {
     */
 
     // Phase 1: Symbol tables and section tracking
-    unordered_map<string, int> static_labels;       // label -> byte address
-    unordered_map<string, int> instruction_labels;  // label -> instruction number
-    vector<string> data_section;                    // .data section lines
-    vector<string> text_section;                    // .text section lines
+    unordered_map<string, int> static_labels; // label -> byte address
+    unordered_map<string, int> instruction_labels; // label -> instruction number
+    vector<string> data_section;  // .data section lines
+    vector<string> text_section;  // .text section lines
     enum Section {
         NONE, 
         DATA, 
         TEXT };
     Section current_section = NONE;
-    int data_address = 0;                           // current byte address in .data
-    int instruction_count = 0;                      // current instruction number in .text
+    int data_address = 0; // current byte address in .data
+    int instruction_count = 0;  // current instruction number in .text
 
     // For each input file (order matters when multiple files provided)
     for (size_t i = 0; i < inputFiles.size(); ++i) {
@@ -135,14 +135,14 @@ int main(int argc, char* argv[]) {
 
                 // Treat a dot-prefixed single token like ".main" as an implicit label in .text
                 if (!str.empty() && str[0] == '.' && str.find(' ') == string::npos && str.find('\t') == string::npos) {
-                    string label = str.substr(1); // drop the leading dot
-                    // ensure we are in TEXT section
+                    string label = str.substr(1); // drops the leading dot
+                    // ensures that we are in the TEXT section
                     current_section = TEXT;
                     instruction_labels[label] = instruction_count;
                     continue; // no further content on this line
                 }
 
-                string content = str;  // Default: treat entire line as content
+                string content = str;  // The default is to treat the entire line as content
 
                 // Checks if the line contains a label (aka has colon)
                 if (str.find(':') != string::npos) {
@@ -150,10 +150,10 @@ int main(int argc, char* argv[]) {
                     string label = str.substr(0, str.find(':'));
                     content = str.substr(str.find(':') + 1);
 
-                    // Trim whitespace from content
+                    // Trims whitespace from content
                     content = ltrim(content);
 
-                    // Store label in appropriate symbol table
+                    // Stores label in its appropriate symbol table
                     if (current_section == DATA) {
                         static_labels[label] = data_address; // Map label to current byte address
                     } else if (current_section == TEXT) {
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
                 
                 // Process remaining content based on section type
                 if (current_section == DATA) {
-                    // Data section: only process if there's actual content after label
+                    // In Data section, it only processes if there's actual content after label
                     if (!content.empty()) {
                         data_section.push_back(content);
 
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 } else if (current_section == TEXT) {
-                    // Text section: process content if present
+                    // Text section, processes content if anything is present
                     if (!content.empty()) {
                         text_section.push_back(content);
                         instruction_count++;
