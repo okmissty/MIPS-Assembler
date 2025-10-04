@@ -16,12 +16,7 @@ if [[ ! -x ./readbytes ]]; then
   fi
 fi
 
-# Create txt folder for comparison files
-txtFolder="txt"
-if [[ ! -d "$txtFolder" ]]; then
-  mkdir -p "$txtFolder"
-  echo "Created $txtFolder/ directory for comparison files"
-fi
+
 
 passed=0
 total=0

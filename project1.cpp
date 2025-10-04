@@ -31,14 +31,13 @@ int main(int argc, char* argv[]) {
     // to output/<basename>_static.bin and output/<basename>_inst.bin
     // 
     // ./assemble demo1.asm [demo2.asm ...] static_output.bin inst_output.bin
-    //  the first n-2 args are input files, next is static output, last is instruction output
 
         vector<string> inputFiles;
         string static_filename;
         string inst_filename;
 
         if (argc == 2) {
-            // Essentially prepares the legacy for the input files
+            // One input file, outputs to output/<basename>_static.bin and output/<basename>_inst.bin
             inputFiles.push_back(string(argv[1]));
             string output_prefix = getBaseFilename(argv[1]);
             static_filename = string("output/") + output_prefix + string("_static.bin");
@@ -59,17 +58,19 @@ int main(int argc, char* argv[]) {
             try {
                 filesystem::path staticPath(static_filename);
                 filesystem::path instPath(inst_filename);
-                if (staticPath.has_parent_path()) filesystem::create_directories(staticPath.parent_path());
-                if (instPath.has_parent_path()) filesystem::create_directories(instPath.parent_path());
-            } catch (const std::exception &e) {
-                cerr << "Warning: could not create output directories: " << e.what() << endl;
+                if (staticPath.has_parent_path()) 
+                    filesystem::create_directories(staticPath.parent_path());
+                if (instPath.has_parent_path()) 
+                    filesystem::create_directories(instPath.parent_path());
+            } catch (const exception &error) {
+                cerr << "Error, the output directories could not be created. " << error.what() << endl;
             }
         } else {
             cerr << "Expected Usage:\n ./assemble infile.asm\n OR\n ./assemble infile1.asm [infile2.asm ...] static_output.bin inst_output.bin\n" << endl;
             return 1;
         }
     
-    //Prepares output files
+    // Prepares the output files
     ofstream inst_outfile, static_outfile;
     static_outfile.open(static_filename, ios::binary);
     inst_outfile.open(inst_filename, ios::binary);
@@ -79,24 +80,23 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
     
+    // Shows the user where the output will end up
     cout << "Assembling to:" << endl;
-    cout << "  Static memory: " << static_filename << endl;
-    cout << "  Instructions:  " << inst_filename << endl;
+    cout << "- Static memory: " << static_filename << endl;
+    cout << "- Instructions:  " << inst_filename << endl;
 
     /**
      * Phase 1:
-     * Read all instructions, clean them of comments and whitespace
-     * Parse .data and .text sections separately  
-     * Extract labels and calculate their addresses:
-     *    - Static memory labels → byte addresses (0, 4, 8, 24, etc.)
-     *    - Instruction labels → instruction numbers (0, 1, 2, 20, etc.)
-     * Build symbol tables for Phase 2 and 3 to use
-     * Separate data declarations from instructions
+     * Read all instructions, clean them of comments and whitespace DONE
+     * DONE: Determine the numbers for all static memory labels
+     * (measured in bytes starting at 0)
+     * DONE: Determine the line numbers of all instruction line labels
+     * (measured in instructions) starting at 0
     */
 
-    // Phase 1: Symbol tables and section tracking
-    unordered_map<string, int> static_labels; // label -> byte address
-    unordered_map<string, int> instruction_labels; // label -> instruction number
+    // Initialize data structures
+    unordered_map<string, int> static_labels; // label --> byte address
+    unordered_map<string, int> instruction_labels; // label --> instruction number
     vector<string> data_section;  // .data section lines
     vector<string> text_section;  // .text section lines
     enum Section {
@@ -107,8 +107,8 @@ int main(int argc, char* argv[]) {
     int data_address = 0; // current byte address in .data
     int instruction_count = 0;  // current instruction number in .text
 
-    // For each input file (order matters when multiple files provided)
-    for (size_t i = 0; i < inputFiles.size(); ++i) {
+    // For each input file
+    for (int i = 0; i < inputFiles.size(); ++i) {
         ifstream infile(inputFiles[i]); //  open the input file for reading
         if (!infile) { // if file can't be opened, need to let the user know
             cerr << "Error: could not open file: " << inputFiles[i] << endl;
@@ -133,13 +133,15 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                // Treat a dot-prefixed single token like ".main" as an implicit label in .text
+                // For test cases like test4.asm where there are labels like .main without .data or .text
                 if (!str.empty() && str[0] == '.' && str.find(' ') == string::npos && str.find('\t') == string::npos) {
                     string label = str.substr(1); // drops the leading dot
+
                     // ensures that we are in the TEXT section
                     current_section = TEXT;
+                    
                     instruction_labels[label] = instruction_count;
-                    continue; // no further content on this line
+                    continue; // no more content --> move to the next line
                 }
 
                 string content = str;  // The default is to treat the entire line as content
@@ -161,7 +163,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                // Process remaining content based on section type
+                // Process the rest of the content based on the section
                 if (current_section == DATA) {
                     // In Data section, it only processes if there's actual content after label
                     if (!content.empty()) {
@@ -181,13 +183,13 @@ int main(int argc, char* argv[]) {
 
                             if (begin != string::npos && end != string::npos && begin < end) {
                                 string str_content = content.substr(begin + 1, end - begin - 1);
-                                // Each character takes 4 bytes, plus null terminator
+                                // Each character = 4 bytes, and +1 for null terminator
                                 data_address += (str_content.length() + 1) * 4;
                             }
                         }
                     }
                 } else if (current_section == TEXT) {
-                    // Text section, processes content if anything is present
+                    // Processes content if anything is there
                     if (!content.empty()) {
                         text_section.push_back(content);
                         instruction_count++;
@@ -202,7 +204,6 @@ int main(int argc, char* argv[]) {
 
     /** Phase 2
      * Process all static memory, output to static memory file
-     * Parse .word directives and write data to static memory binary file
      */
     for (const string& line : data_section) {
         vector<string> terms = split(line, WHITESPACE);
@@ -210,12 +211,13 @@ int main(int argc, char* argv[]) {
         if (terms.size() > 0 && terms[0] == ".word") {
             // Processes each value after .word
             for (int i = 1; i < terms.size(); i++) {
+
                 string value = terms[i];
                 int data_value;
                 
                 // Checks if this is a numeric literal or a label reference
                 if (isdigit(value[0]) || (value[0] == '-' && value.length() > 1)) {
-                    // The term is a numerical value
+                    // The term is a numerical value (assuming no labels start with - or digits)
                     data_value = stoi(value);
                 } else {
                     // Else its a label reference so it looks for it in the instruction labels
@@ -234,39 +236,43 @@ int main(int argc, char* argv[]) {
     }
     
     /** Phase 3
-     * - Goes through each instruction and properly encodes 
-     * Process all instructions, output to instruction memory file
+     * Process all instructions, encodes, outputs to instruction memory file
      */ 
     int current_instruction = 0;
-    for(string inst : text_section) {  // Changed from 'instructions' to 'text_section'
+    for(string inst : text_section) {  
         vector<string> terms = split(inst, WHITESPACE+",()");
         string inst_type = terms[0];
         
         // R type instructions: int opcode, int rs, int rt, int rd, int shftamt, int funccode
         if (inst_type == "add") {
-            if (terms.size() < 4) {
-                cerr << "Error: add instruction requires 3 registers" << endl;
-                exit(1);
-            }
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 32), inst_outfile);
+
         } else if (inst_type == "sub") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 34), inst_outfile);
+
         } else if (inst_type == "mult") {
             write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 24), inst_outfile);
+
         } else if (inst_type == "div") {
             write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 0, 0, 26), inst_outfile);
+
         } else if (inst_type == "mflo") {
             write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 18), inst_outfile);
+
         } else if (inst_type == "mfhi") {
             write_binary(encode_Rtype(0, 0, 0, registers[terms[1]], 0, 16), inst_outfile);
+
         } else if (inst_type == "sll") {
             // sll rd, rt, shamt
             write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 0), inst_outfile);
+
         } else if (inst_type == "srl") {
             // srl rd, rt, shamt
             write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 2), inst_outfile);
+
         } else if (inst_type == "jr") {
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
+
         } else if (inst_type == "jalr") {
             if (terms.size() == 2) {
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, 31, 0, 9), inst_outfile);
@@ -274,23 +280,24 @@ int main(int argc, char* argv[]) {
                 // In the case that there are two registers, it will store in $r1 and jump to $r0
                 write_binary(encode_Rtype(0, registers[terms[1]], 0, registers[terms[2]], 0, 9), inst_outfile);
             }
+
         } else if (inst_type == "slt") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
+
         } else if (inst_type == "addi") {
-            if (terms.size() < 4) {
-                cerr << "Error: addi instruction requires 2 registers and 1 immediate" << endl;
-                exit(1);
-            }
             int imm = stoi(terms[3]);
             write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
+
         } else if (inst_type == "lw") {
             // lw $rt, offset($rs)
             int offset = stoi(terms[2]);
             write_binary(encode_Itype(35, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
+
         } else if (inst_type == "sw") {
             // sw $rt, offset($rs)
             int offset = stoi(terms[2]);
             write_binary(encode_Itype(43, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
+
         } else if (inst_type == "beq") {
             string label = terms[3];
             if (instruction_labels.find(label) != instruction_labels.end()) {
@@ -307,6 +314,7 @@ int main(int argc, char* argv[]) {
                 int target = instruction_labels[label];
                 int offset = target - (current_instruction + 1);
                 write_binary(encode_Itype(5, registers[terms[1]], registers[terms[2]], offset), inst_outfile);
+
             } else {
                 cerr << "Error: undefined instruction label '" << label << "' in bne instruction" << endl;
                 exit(1);
@@ -334,7 +342,7 @@ int main(int argc, char* argv[]) {
         
         // Pseudo instructions
         } else if (inst_type == "la") {
-            // la $rt, label -> addi $rt, $zero, address
+            // la $rt, label --> addi $rt, $zero, address
             // la works with static memory labels, defaults to 0 if not found
             string label = terms[2];
             int address = 0; // Default to address 0
@@ -343,17 +351,19 @@ int main(int argc, char* argv[]) {
             }
             write_binary(encode_Itype(8, 0, registers[terms[1]], address), inst_outfile);
         
-        // Challenge: bge  (1 star) bge $rs, $rt, label -> slt $at, $rs, $rt; beq $at, $zero, label
+        // Challenge: bge  (1 star) bge $rs, $rt, label --> slt $at, $rs, $rt; beq $at, $zero, label
         } else if (inst_type == "bge") {
-        write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
-        current_instruction++;
-        
-        int target = instruction_labels[terms[3]];
-        int offset = target - (current_instruction + 1);
-        write_binary(encode_Itype(4, 1, 0, offset), inst_outfile);
+            // bge $rs, $rt, label -> slt $at, $rs, $rt; beq $at, $zero, label
+            write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
+            current_instruction++;
+            
+            int target = instruction_labels[terms[3]];
+            int offset = target - (current_instruction + 1);
+            write_binary(encode_Itype(4, 1, 0, offset), inst_outfile);
 
-        // Challenge: ble (1 star) ble $rs, $rt, label -> slt $at, $rt, $rs; bne $at, $zero, label
+        // Challenge: ble (1 star) ble $rs, $rt, label --> slt $at, $rt, $rs; bne $at, $zero, label
         } else if (inst_type == "ble") {
+            // ble $rs, $rt, label -> slt $at, $rt, $rs; bne $at, $zero, label
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[1]], 1, 0, 42), inst_outfile);
             current_instruction++;
             
@@ -380,8 +390,9 @@ int main(int argc, char* argv[]) {
 
         // Challenge: blt (1 star)
         } else if (inst_type == "blt") {
+            // blt $rs, $rt, label -> slt $at, $rs, $rt; bne $at, $zero, label
             write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
-            current_instruction++; // We wrote a instruction, so we increment the counter to allocate for it
+            current_instruction++;
             
             int target = instruction_labels[terms[3]]; // Gets the line number of the label
             int offset = target - (current_instruction + 1);
