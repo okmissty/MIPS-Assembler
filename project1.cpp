@@ -182,9 +182,9 @@ int main(int argc, char* argv[]) {
 
                             if (begin != string::npos && end != string::npos && begin < end) {
                                 string str_content = content.substr(begin + 1, end - begin - 1);
-                                // .asciiz = bytes: one byte per char plus a null terminator
-                                int str_bytes = (str_content.length()) + 1;
-                                int pad_bytes = (4 - (str_bytes % 4)) % 4; // pad to 4-byte boundary
+                                // .asciiz: use 4 bytes per character + 4-byte NUL terminator
+                                int str_bytes = (str_content.length()) * 4 + 4; // each char -> 4 bytes, plus 4-byte null
+                                int pad_bytes = (4 - (str_bytes % 4)) % 4;
                                 data_address += str_bytes + pad_bytes;
                             }
                         }
@@ -192,8 +192,18 @@ int main(int argc, char* argv[]) {
                 } else if (current_section == TEXT) {
                     // Processes content if anything is there
                     if (!content.empty()) {
+                        // Check if its +1 instruction or +2 instructions that
+                        // Some pseudo-instructions (bge, ble, blt) expand into two real instructions.
+                        vector<string> tmp_terms = split(content, WHITESPACE + ",()");
+                        int expansion = 1;
+                        if (tmp_terms.size() > 0) {
+                            string inst = tmp_terms[0];
+                            if (inst == "bge" || inst == "ble" || inst == "blt") {
+                                expansion = 2;
+                            }
+                        }
                         text_section.push_back(content);
-                        instruction_count++;
+                        instruction_count += expansion;
                     }
                     // For the standalone labels (with empty content) in our asm. files, we don't increment instruction_count
                     // The label maps to the current instruction_count, which will be the address of the next actual instruction that follows
@@ -236,18 +246,19 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (terms.size() > 0 && terms[0] == ".asciiz") {
-            // Emit the string bytes and a terminating null
+            // Emit the string: 4 bytes per character (leading zeros) and a 4-byte terminating null
             int begin = line.find('"');
             int end = line.rfind('"');
             if (begin != string::npos && end != string::npos && begin < end) {
                 string str_content = line.substr(begin + 1, end - begin - 1);
-                for (int i = 0; i < str_content.size(); ++i) {
-                    static_outfile.put(str_content[i]);
+                // Write each character as a 4-byte word 
+                for (int i = 0; i < (int)str_content.size(); ++i) {
+                    write_binary((int)str_content[i], static_outfile);
                 }
-                // null terminator
-                static_outfile.put('\0');
-                // pad to 4-byte alignment
-                int str_bytes = str_content.length() + 1;
+                // Write 4-byte null terminator
+                write_binary(0, static_outfile);
+                // Pad to 4-byte boundary if needed 
+                int str_bytes = (int)str_content.length() * 4 + 4;
                 int pad_bytes = (4 - (str_bytes % 4)) % 4;
                 for (int pad_idx = 0; pad_idx < pad_bytes; ++pad_idx) 
                     static_outfile.put('\0');
@@ -379,20 +390,32 @@ int main(int argc, char* argv[]) {
             // bge $rs, $rt, label -> slt $at, $rs, $rt; beq $at, $zero, label
             write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
             current_instruction++;
-            
-            int target = instruction_labels[terms[3]];
-            int offset = target - (current_instruction + 1);
-            write_binary(encode_Itype(4, 1, 0, offset), inst_outfile);
+
+            string label = terms[3];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                int offset = target - (current_instruction + 1);
+                write_binary(encode_Itype(4, 1, 0, offset), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in bge instruction" << endl;
+                exit(1);
+            }
 
         // Challenge: ble (1 star) ble $rs, $rt, label --> slt $at, $rt, $rs; bne $at, $zero, label
         } else if (inst_type == "ble") {
             // ble $rs, $rt, label -> slt $at, $rt, $rs; bne $at, $zero, label
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[1]], 1, 0, 42), inst_outfile);
             current_instruction++;
-            
-            int target = instruction_labels[terms[3]];
-            int offset = target - (current_instruction + 1);
-            write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+
+            string label = terms[3];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label];
+                int offset = target - (current_instruction + 1);
+                write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in ble instruction" << endl;
+                exit(1);
+            }
 
         // Challenge: mov (0.5 stars)
         } else if (inst_type == "mov") {
@@ -416,10 +439,16 @@ int main(int argc, char* argv[]) {
             // blt $rs, $rt, label -> slt $at, $rs, $rt; bne $at, $zero, label
             write_binary(encode_Rtype(0, registers[terms[1]], registers[terms[2]], 1, 0, 42), inst_outfile);
             current_instruction++;
-            
-            int target = instruction_labels[terms[3]]; // Gets the line number of the label
-            int offset = target - (current_instruction + 1);
-            write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+
+            string label = terms[3];
+            if (instruction_labels.find(label) != instruction_labels.end()) {
+                int target = instruction_labels[label]; // Gets the line number of the label
+                int offset = target - (current_instruction + 1);
+                write_binary(encode_Itype(5, 1, 0, offset), inst_outfile);
+            } else {
+                cerr << "Error: undefined instruction label '" << label << "' in blt instruction" << endl;
+                exit(1);
+            }
                 
         // Special instructions
         } else if (inst_type == "syscall") {
