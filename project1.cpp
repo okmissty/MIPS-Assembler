@@ -10,7 +10,6 @@
 #include <sstream>
 #include <fstream>
 #include <filesystem>
-#include <algorithm>
 
 using namespace std;
 
@@ -183,8 +182,10 @@ int main(int argc, char* argv[]) {
 
                             if (begin != string::npos && end != string::npos && begin < end) {
                                 string str_content = content.substr(begin + 1, end - begin - 1);
-                                // Each character = 4 bytes, and +1 for null terminator
-                                data_address += (str_content.length() + 1) * 4;
+                                // .asciiz = bytes: one byte per char plus a null terminator
+                                int str_bytes = (str_content.length()) + 1;
+                                int pad_bytes = (4 - (str_bytes % 4)) % 4; // pad to 4-byte boundary
+                                data_address += str_bytes + pad_bytes;
                             }
                         }
                     }
@@ -220,17 +221,39 @@ int main(int argc, char* argv[]) {
                     // The term is a numerical value (assuming no labels start with - or digits)
                     data_value = stoi(value);
                 } else {
-                    // Else its a label reference so it looks for it in the instruction labels
-                    if (instruction_labels.find(value) != instruction_labels.end()) {
-                        // Converts instruction numbers to its byte address (aka multiply by 4)
-                        data_value = instruction_labels[value] * 4;
+                    // First check static data labels, then instruction labels
+                    if (static_labels.find(value) != static_labels.end()) {
+                        data_value = (static_labels[value]);
+                    } else if (instruction_labels.find(value) != instruction_labels.end()) {
+                        data_value = (instruction_labels[value] * 4);
                     } else {
                         cerr << "Error: undefined label '" << value << "' in .data section" << endl;
                         exit(1);
                     }
                 }
-                // It will write the integer to static memory file
+                // It will write the integer (word) to static memory file
                 write_binary(data_value, static_outfile);
+            }
+        }
+        else if (terms.size() > 0 && terms[0] == ".asciiz") {
+            // Emit the string bytes and a terminating null
+            int begin = line.find('"');
+            int end = line.rfind('"');
+            if (begin != string::npos && end != string::npos && begin < end) {
+                string str_content = line.substr(begin + 1, end - begin - 1);
+                for (int i = 0; i < str_content.size(); ++i) {
+                    static_outfile.put(str_content[i]);
+                }
+                // null terminator
+                static_outfile.put('\0');
+                // pad to 4-byte alignment
+                int str_bytes = str_content.length() + 1;
+                int pad_bytes = (4 - (str_bytes % 4)) % 4;
+                for (int pad_idx = 0; pad_idx < pad_bytes; ++pad_idx) 
+                    static_outfile.put('\0');
+            } else {
+                cerr << "Error with .asciiz string: " << line << endl;
+                exit(1);
             }
         }
     }
