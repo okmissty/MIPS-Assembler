@@ -1,3 +1,4 @@
+.main
 # Testcase 1a
 # setup
 addi $t1, $zero, 10            # t1 = 10
