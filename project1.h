@@ -46,6 +46,30 @@ string clean(const string &s){
     return rtrim(ltrim(s.substr(0,s.find('#'))));
 }
 
+// Parse a numeric literal (decimal or hex) into a 32-bit int.
+// Accepts decimal like "123", negative like "-1", and hex like "0xFF".
+// If the value is outside signed 32-bit range, we preserve the lower 32 bits
+// by parsing as unsigned and then casting to int, which keeps the bit pattern.
+inline int parse_number(const string &s) {
+    try {
+        // Use base 0 so "0x" prefixes are recognized as hex
+        long long v = stoll(s, nullptr, 0);
+        return (int)((unsigned long long)v & 0xFFFFFFFFULL);
+    } catch (const std::invalid_argument &e) {
+        cerr << "Error: invalid numeric literal '" << s << "'" << endl;
+        exit(1);
+    } catch (const std::out_of_range &e) {
+        // Try unsigned parse and mask lower 32 bits
+        try {
+            unsigned long long uv = stoull(s, nullptr, 0);
+            return (int)(uv & 0xFFFFFFFFULL);
+        } catch (...) {
+            cerr << "Error: numeric literal out of range '" << s << "'" << endl;
+            exit(1);
+        }
+    }
+}
+
 /**
  * How to write raw binary to a file in C++
  */

@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
                 // Checks if this is a numeric literal or a label reference
                 if (isdigit(value[0]) || (value[0] == '-' && value.length() > 1)) {
                     // The term is a numerical value (assuming no labels start with - or digits)
-                    data_value = stoi(value);
+                    data_value = parse_number(value);
                 } else {
                     // First check static data labels, then instruction labels
                     if (static_labels.find(value) != static_labels.end()) {
@@ -297,11 +297,11 @@ int main(int argc, char* argv[]) {
 
         } else if (inst_type == "sll") {
             // sll rd, rt, shamt
-            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 0), inst_outfile);
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], parse_number(terms[3]), 0), inst_outfile);
 
         } else if (inst_type == "srl") {
             // srl rd, rt, shamt
-            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], stoi(terms[3]), 2), inst_outfile);
+            write_binary(encode_Rtype(0, 0, registers[terms[2]], registers[terms[1]], parse_number(terms[3]), 2), inst_outfile);
 
         } else if (inst_type == "jr") {
             write_binary(encode_Rtype(0, registers[terms[1]], 0, 0, 0, 8), inst_outfile);
@@ -318,17 +318,17 @@ int main(int argc, char* argv[]) {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 42), inst_outfile);
 
         } else if (inst_type == "addi") {
-            int imm = stoi(terms[3]);
+            int imm = parse_number(terms[3]);
             write_binary(encode_Itype(8, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
 
         } else if (inst_type == "lw") {
             // lw $rt, offset($rs)
-            int offset = stoi(terms[2]);
+            int offset = parse_number(terms[2]);
             write_binary(encode_Itype(35, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
 
         } else if (inst_type == "sw") {
             // sw $rt, offset($rs)
-            int offset = stoi(terms[2]);
+            int offset = parse_number(terms[2]);
             write_binary(encode_Itype(43, registers[terms[3]], registers[terms[1]], offset), inst_outfile);
 
         } else if (inst_type == "beq") {
@@ -422,8 +422,26 @@ int main(int argc, char* argv[]) {
 
         // Challenge: li (0.5 stars)
         } else if (inst_type == "li") {
-            int imm = stoi(terms[2]);
+            int imm = parse_number(terms[2]);
             write_binary(encode_Itype(8, 0, registers[terms[1]], imm), inst_outfile);
+
+        // I-type bitwise immediates: andi, ori, xori
+        } else if (inst_type == "andi") {
+            int imm = parse_number(terms[3]);
+            write_binary(encode_Itype(12, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
+
+        } else if (inst_type == "ori") {
+            int imm = parse_number(terms[3]);
+            write_binary(encode_Itype(13, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
+
+        } else if (inst_type == "xori") {
+            int imm = parse_number(terms[3]);
+            write_binary(encode_Itype(14, registers[terms[2]], registers[terms[1]], imm), inst_outfile);
+
+        } else if (inst_type == "lui") {
+            // lui $rt, imm -> opcode 15, rs = 0
+            int imm = parse_number(terms[2]);
+            write_binary(encode_Itype(15, 0, registers[terms[1]], imm), inst_outfile);
 
         // Challenge: AND (0.5 stars)
         } else if (inst_type == "and") {
@@ -432,6 +450,14 @@ int main(int argc, char* argv[]) {
         // Challenge: OR (0.5 stars)
         } else if (inst_type == "or") {
             write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 37), inst_outfile);
+
+        // Challenge: XOR (0.5 stars)
+        } else if (inst_type == "xor") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 38), inst_outfile);
+
+        // Challenge: NOR (0.5 stars)
+        } else if (inst_type == "nor") {
+            write_binary(encode_Rtype(0, registers[terms[2]], registers[terms[3]], registers[terms[1]], 0, 39), inst_outfile);
 
         // Challenge: blt (1 star)
         } else if (inst_type == "blt") {
