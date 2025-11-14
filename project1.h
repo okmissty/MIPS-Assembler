@@ -16,7 +16,38 @@ using namespace std;
  */
 
 const string WHITESPACE = " \n\r\t\f\v";
- 
+
+// parse_number
+// Parse a numeric literal into a 32-bit bit-pattern (returned in an `int`).
+// Accepts:
+//  - decimal (e.g. "123")
+//  - signed decimal (e.g. "-1")
+//  - hex with 0x/0X prefix (e.g. "0xFF")
+//  - (platform-dependent) octal with leading 0 when using base 0
+// The function returns the value masked to 32 bits (i.e., lower 32 bits preserved).
+// On invalid input it prints an error and exits(1).
+inline int parse_number(const string &s) {
+    try {
+        // Use base 0 so "0x" prefixes are recognized automatically.
+        long long v = stoll(s, nullptr, 0);
+        return (int)((unsigned long long)v & 0xFFFFFFFFULL);
+    } catch (const std::invalid_argument &e) {
+        cerr << "Error: invalid numeric literal '" << s << "'" << endl;
+        exit(1);
+    } catch (const std::out_of_range &e) {
+        // Value is outside signed range; try unsigned parse and mask lower 32 bits.
+        try {
+            unsigned long long uv = stoull(s, nullptr, 0);
+            return (int)(uv & 0xFFFFFFFFULL);
+        } catch (const std::invalid_argument &) {
+            cerr << "Error: invalid numeric literal '" << s << "'" << endl;
+            exit(1);
+        } catch (const std::out_of_range &) {
+            cerr << "Error: numeric literal out of range '" << s << "'" << endl;
+            exit(1);
+        }
+    }
+}
 //Remove all whitespace from the left of the string
 string ltrim(const string &s){
     size_t start = s.find_first_not_of(WHITESPACE);
