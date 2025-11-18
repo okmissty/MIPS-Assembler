@@ -354,3 +354,59 @@ addi $t0, $zero, 305441741     # t0 = 00010010001101001010101111001101 = 3054417
 # test
 andi $t1, $t0, 0xFFFF          # t1 = t0 & imm
 # Expected Output: t1 = 00000000000000001010101111001101 = 43981 = 0x0000ABCD
+
+
+# TESTCASES FOR PROJECT CHECKPOINT 3
+
+# Testcase 25a
+# --- Setup small values; exercise sw/lw at aligned addresses 0 and 4 ---
+    addi  $t0, $zero, 1          # $t0=1
+    addi  $t1, $zero, 2          # $t1=2
+    addi  $t2, $zero, 3          # $t2=3
+
+    sw    $t0, 0($zero)          # MEM[0]   = 1
+    sw    $t1, 4($zero)          # MEM[4]   = 2
+    lw    $t3, 0($zero)          # $t3=1
+    lw    $t4, 4($zero)          # $t4=2
+
+# --- Branches: beq not-taken, then bne taken to “took1” ---
+    beq   $t3, $t4, skip1        # 1==2? no -> not taken
+    bne   $t3, $t4, took1        # 1!=2 -> taken, skip next
+
+skip1:
+    addi  $t5, $zero, 999        # would run only if bne not taken (it IS taken)
+
+took1:                            # now here
+    add   $t6, $t3, $t4          # $t6=1+2=3
+    beq   $t6, $t2, next1        # 3==3 -> taken, skip next
+    addi  $t7, $zero, 123        # would be skipped by taken beq
+
+# --- Absolute jump (“j”) to jtarget ---
+next1:
+    j     jtarget
+    addi  $zero, $zero, 0        # padding/NOP (never executed)
+
+# --- JAL to func; verify $ra is link; after return, test JALR ---
+jtarget:
+    jal   func                   # $ra <- return addr
+    addi  $t0, $zero, 132        # prepare target address (byte addr) for JALR
+    jalr  $s1, $t0               # link to $s1, jump to *$t0 (at 132)
+
+# --- Func: sets $v0 then returns to $ra ---
+func:
+    addi  $v0, $zero, 7
+    jr    $ra
+
+# --- After we return from JAL to func, execution resumes here ---
+# Add a branch-not-taken bne ($t2==$t2) then do a syscall
+    bne   $t2, $t2, +1           # not taken
+    syscall     
+
+# --- JALR target block at absolute address 132 (set by $t0) ---
+# jalr linked to $s1, so return with jr $s1
+jalr_target:                     # (absolute byte address 132)
+    addi  $a0, $zero, 42
+    jr    $s1
+
+end:
+    j end
