@@ -211,6 +211,9 @@ int main(int argc, char* argv[]) {
         }
         infile.close();
     }
+    // Add special label for kernel heap initialization
+    // This tells the kernel where static memory ends and heap begins
+    static_labels["_END_OF_STATIC_MEMORY_"] = data_address;
 
     /** Phase 2
      * Process all static memory, output to static memory file
